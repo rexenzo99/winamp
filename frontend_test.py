@@ -6,7 +6,6 @@ This performs detailed analysis of the HTML structure and functionality
 
 import requests
 import re
-from bs4 import BeautifulSoup
 import sys
 
 class FrontendTester:
