@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>99 CENTS Car Stereo Player</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">
+  <style>
+    :root { 
+      --w: 700px; 
+      --h: 218px; 
+      --scale: 1;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body { 
+      display: grid; 
+      place-items: center; 
+      min-height: 100vh; 
+      background: linear-gradient(135deg, #0a0f14 0%, #1a1f24 100%);
+      font-family: 'Courier New', 'Monaco', 'Lucida Console', monospace;
+      overflow: hidden;
+      color: #00ff00;
+    }
+    
+    .deck {
+      position: relative; 
+      width: var(--w); 
+      height: var(--h);
+      background: url("./assets/alpine_faceplate.png") center/contain no-repeat;
+      user-select: none;
+      transform: scale(var(--scale));
+      filter: contrast(1.1) brightness(1.05) saturate(1.1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    
+    /* Invisible hit areas - positioned based on the Alpine faceplate layout */
+    .btn, .slider { 
+      position: absolute; 
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.1s ease;
+    }
+    
+    .btn:hover {
+      background: rgba(0, 255, 255, 0.1);
+    }
+    
+    .btn:active {
+      background: rgba(0, 255, 255, 0.2);
+      transform: scale(0.95);
+    }
+    
+    /* Play/Pause button - large circular button on left */
+    .btn.play { 
+      left: 160px; 
+      top: 105px; 
+      width: 45px; 
+      height: 45px;
+      border-radius: 50%;
+    }
+    
+    /* Next button - to the right of play */
+    .btn.next { 
+      left: 210px; 
+      top: 115px; 
+      width: 35px; 
+      height: 25px;
+    }
+    
+    /* Volume slider - positioned over the volume area */
+    .slider.volume { 
+      left: 85px; 
+      top: 140px; 
+      width: 120px;
+      height: 20px;
+      -webkit-appearance: none;
+      background: transparent;
+      outline: none;
+    }
+    
+    .slider.volume::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00ffff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+    
+    .slider.volume::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00ffff;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+
+    /* Scrolling title window - positioned over the LCD display */
+    .ticker-wrap {
+      position: absolute; 
+      left: 280px; 
+      top: 65px; 
+      width: 320px; 
+      height: 25px;
+      overflow: hidden; 
+      background: rgba(0, 20, 40, 0.8); 
+      border-radius: 3px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      display: flex;
+      align-items: center;
+    }
+    
+    .ticker {
+      position: absolute; 
+      white-space: nowrap; 
+      will-change: transform;
+      animation: scroll 15s linear infinite;
+      font-weight: bold; 
+      letter-spacing: 1px;
+      font-size: 14px;
+      color: #00ffff; 
+      text-shadow: 0 0 8px #00ffff;
+      transform: translateX(100%);
+      padding: 0 20px;
+    }
+    
+    @keyframes scroll { 
+      from { transform: translateX(100%); } 
+      to { transform: translateX(-100%); } 
+    }
+
+    /* Status indicators */
+    .status {
+      position: absolute;
+      left: 280px;
+      top: 95px;
+      font-size: 12px;
+      color: #00ff00;
+      font-weight: bold;
+      text-shadow: 0 0 6px #00ff00;
+    }
+
+    /* Debug mode: add 'debug' to deck class while aligning */
+    .debug .btn { 
+      outline: 2px dashed rgba(255, 255, 255, 0.7); 
+      background: rgba(255, 0, 0, 0.1);
+    }
+    
+    .debug .ticker-wrap {
+      outline: 2px dashed rgba(0, 255, 255, 0.7);
+    }
+    
+    .debug .slider {
+      outline: 2px dashed rgba(0, 255, 0, 0.7);
+    }
+
+    /* Responsive design */
+    @media (max-width: 800px) {
+      :root {
+        --scale: 0.9;
+      }
+    }
+    
+    @media (max-width: 600px) {
+      :root {
+        --scale: 0.7;
+      }
+    }
+
+    /* Loading animation */
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #00ffff;
+      font-size: 16px;
+      text-shadow: 0 0 10px #00ffff;
+    }
+
+    .error {
+      color: #ff4444;
+      text-shadow: 0 0 10px #ff4444;
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+    <div class="ticker-wrap">
+      <div class="ticker" id="ticker">99 CENTS CAR STEREO - Loading...</div>
+    </div>
+    
+    <div class="status" id="status">READY</div>
+    
+    <div class="btn play" title="Play/Pause" aria-label="Play/Pause" id="playBtn"></div>
+    <div class="btn next" title="Next Track" aria-label="Next Track" id="nextBtn"></div>
+    <input class="slider volume" id="vol" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Volume" />
+  </div>
+
+  <audio id="player" preload="metadata"></audio>
+
+  <script>
+    // Playlist configuration
+    const tracks = [
+      { 
+        url: "./audio/track1.mp3", 
+        title: "♪ RETRO VIBES - Synthwave Nights ♪",
+        artist: "99 CENTS"
+      },
+      { 
+        url: "./audio/track2.mp3", 
+        title: "♪ NEON DREAMS - Digital Highway ♪",
+        artist: "99 CENTS"
+      },
+      { 
+        url: "./audio/track3.mp3", 
+        title: "♪ CHROME SUNSET - Electric Avenue ♪", 
+        artist: "99 CENTS"
+      },
+    ];
+
+    // DOM elements
+    const audio = document.getElementById("player");
+    const playBtn = document.getElementById("playBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const vol = document.getElementById("vol");
+    const ticker = document.getElementById("ticker");
+    const status = document.getElementById("status");
+    const deck = document.getElementById("deck");
+
+    // State
+    let currentTrack = 0;
+    let isPlaying = false;
+    let hasInteracted = false;
+
+    // Utility functions
+    function filenameFromUrl(url) {
+      try {
+        return decodeURIComponent(url.split("/").pop().replace('.mp3', ''));
+      } catch {
+        return url;
+      }
+    }
+
+    function updateStatus(message) {
+      status.textContent = message;
+    }
+
+    function setTrack(index) {
+      currentTrack = (index + tracks.length) % tracks.length;
+      const track = tracks[currentTrack];
+      
+      audio.src = track.url;
+      
+      // Update ticker with track info
+      const displayTitle = track.title || `♪ ${track.artist || 'Unknown'} - ${filenameFromUrl(track.url)} ♪`;
+      ticker.textContent = displayTitle;
+      
+      // Restart marquee animation
+      ticker.style.animation = "none";
+      void ticker.offsetWidth; // Force reflow
+      ticker.style.animation = "";
+      
+      updateStatus(`TRACK ${currentTrack + 1}/${tracks.length}`);
+      
+      console.log(`Loading track: ${displayTitle}`);
+    }
+
+    function playPause() {
+      if (!hasInteracted) {
+        hasInteracted = true;
+      }
+      
+      if (audio.paused) {
+        audio.play().then(() => {
+          isPlaying = true;
+          updateStatus("♪ PLAYING");
+          console.log("Playing:", tracks[currentTrack].title);
+        }).catch(error => {
+          console.error("Play failed:", error);
+          updateStatus("ERROR");
+          ticker.textContent = "⚠ AUDIO ERROR - Check console";
+          ticker.classList.add('error');
+        });
+      } else {
+        audio.pause();
+        isPlaying = false;
+        updateStatus("⏸ PAUSED");
+      }
+    }
+
+    function nextTrack() {
+      setTrack(currentTrack + 1);
+      if (isPlaying || !hasInteracted) {
+        playPause();
+      }
+    }
+
+    function updateVolume() {
+      audio.volume = parseFloat(vol.value);
+      updateStatus(`VOL ${Math.round(audio.volume * 100)}%`);
+      setTimeout(() => updateStatus(isPlaying ? "♪ PLAYING" : "⏸ PAUSED"), 1500);
+    }
+
+    // Event listeners
+    playBtn.addEventListener("click", playPause);
+    nextBtn.addEventListener("click", nextTrack);
+    vol.addEventListener("input", updateVolume);
+
+    // Audio events
+    audio.addEventListener("ended", nextTrack);
+    
+    audio.addEventListener("loadstart", () => {
+      updateStatus("LOADING...");
+    });
+    
+    audio.addEventListener("canplaythrough", () => {
+      updateStatus("READY");
+    });
+    
+    audio.addEventListener("error", (e) => {
+      console.error("Audio error:", e);
+      updateStatus("ERROR");
+      ticker.textContent = "⚠ Audio file not found - Replace placeholder MP3s";
+      ticker.classList.add('error');
+    });
+
+    // Keyboard controls
+    window.addEventListener("keydown", (e) => {
+      // Prevent default for our handled keys
+      if (["Space", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) {
+        e.preventDefault();
+      }
+      
+      switch(e.code) {
+        case "Space":
+          playPause();
+          break;
+        case "ArrowRight":
+          nextTrack();
+          break;
+        case "ArrowUp":
+          vol.value = Math.min(1, parseFloat(vol.value) + 0.05).toFixed(2);
+          updateVolume();
+          break;
+        case "ArrowDown":
+          vol.value = Math.max(0, parseFloat(vol.value) - 0.05).toFixed(2);
+          updateVolume();
+          break;
+        case "KeyD":
+          // Toggle debug mode with 'D' key
+          deck.classList.toggle('debug');
+          console.log("Debug mode:", deck.classList.contains('debug') ? "ON" : "OFF");
+          break;
+      }
+    });
+
+    // Initialize
+    function init() {
+      console.log("🎵 99 CENTS Car Stereo Player initialized");
+      console.log("Tracks loaded:", tracks.length);
+      console.log("Press SPACE to play, RIGHT ARROW for next track, UP/DOWN for volume");
+      console.log("Press D to toggle debug mode for hitbox alignment");
+      
+      setTrack(0);
+      audio.volume = parseFloat(vol.value);
+      updateStatus("READY");
+    }
+
+    // Start the app
+    init();
+
+    // Auto-hide cursor after inactivity (for that authentic car stereo feel)
+    let cursorTimeout;
+    document.addEventListener('mousemove', () => {
+      document.body.style.cursor = 'default';
+      clearTimeout(cursorTimeout);
+      cursorTimeout = setTimeout(() => {
+        document.body.style.cursor = 'none';
+      }, 3000);
+    });
+  </script>
+</body>
+</html>
